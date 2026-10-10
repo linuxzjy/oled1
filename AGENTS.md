@@ -29,7 +29,12 @@ CMake + Ninja + arm-none-eabi-gcc 构建，OpenOCD + ST-Link 在线烧录/调试
 - Cortex-M3，主频由 `main.c: sysclock_init()` 配到 72MHz（HSE 8MHz × 9），HSE 不起振则退回 HSI 8MHz
 - 构建宏 `STM32F103xB`；`-mcpu=cortex-m3 -mthumb -Og -g3`；`nano.specs + nosys.specs + --gc-sections`
 - 引脚全部集中在 `Core/Inc/pins.h`：
-  I2C = PB6(SCL)/PB7(SDA)，EC11 = PA0/PA1(TIM2 编码器)，按键 = PA2(PSH)/PA3(CON)/PA4(BACK)
+  I2C = PB6(SCL)/PB7(SDA)，EC11 = PA0/PA1(TIM2 编码器)，按键 = PA2(PSH)/PA3(CON)/PA4(BACK)，
+  上位机串口 = PA9(TX)/PA10(RX)（USART1，921600）
+- 串口图像链路：PC 采集处理 → 1030 字节帧 → USART1(DMA+IDLE) → OLED 全屏位图。
+  协议和位图格式见 `Core/Inc/uart_frame.h`，PC 端脚本 `tools/cam_serial.py`。
+  位图 1024 字节与 SSD1306 显存同格式（8 页 x 128 列，bit0 = 页内顶行），
+  所以固件侧直接 `ssd1306_blit()` 灌显存，不做逐像素转换。
 - 软件 I2C 用"开漏拉低 + 输入上拉释放"方式，避免模块没焊上拉导致通信失败
 - OLED 地址 0x3C（`ssd1306.h` 的 `SSD1306_ADDR7`），刷新是全屏 1024 字节推送
 - RTC：秒计数 = 自 2000-01-01 起的秒数，时钟源 LSE(32.768kHz) 优先、LSI 兜底；

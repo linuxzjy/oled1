@@ -5,6 +5,10 @@
 /* 显存：按 SSD1306 的页式结构排布，fb[页][列]，可直接整块推给屏幕 */
 static uint8_t g_fb[SSD1306_PAGES][SSD1306_WIDTH];
 
+/* 诊断用：I2C 写字节时屏幕没回 ACK 的次数。
+   一直涨 = 屏幕其实没收到数据，那画面自然不会变。 */
+uint32_t g_i2c_nack = 0u;
+
 static void write_cmd(uint8_t cmd)
 {
     si2c_start();
@@ -66,10 +70,10 @@ void ssd1306_refresh(void)
     write_cmd(0x22u); write_cmd(0x00u); write_cmd(SSD1306_PAGES - 1u);
 
     si2c_start();
-    si2c_write(SSD1306_ADDR);
-    si2c_write(0x40u);                /* Co=0, D/C#=1 -> 数据 */
+    if (!si2c_write(SSD1306_ADDR)) { g_i2c_nack++; }
+    if (!si2c_write(0x40u)) { g_i2c_nack++; }   /* Co=0, D/C#=1 -> 数据 */
     for (i = 0u; i < (SSD1306_PAGES * SSD1306_WIDTH); i++) {
-        si2c_write(((const uint8_t *)g_fb)[i]);
+        if (!si2c_write(((const uint8_t *)g_fb)[i])) { g_i2c_nack++; }
     }
     si2c_stop();
 }
@@ -79,6 +83,15 @@ void ssd1306_clear(void)
     uint16_t i;
     for (i = 0u; i < (SSD1306_PAGES * SSD1306_WIDTH); i++) {
         ((uint8_t *)g_fb)[i] = 0x00u;
+    }
+}
+
+void ssd1306_blit(const uint8_t *data)
+{
+    uint16_t i;
+
+    for (i = 0u; i < (SSD1306_PAGES * SSD1306_WIDTH); i++) {
+        ((uint8_t *)g_fb)[i] = data[i];
     }
 }
 

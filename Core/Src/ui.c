@@ -5,13 +5,21 @@
 #include "cat_bitmap.h"
 
 /* ------------------------------ 界面状态 ------------------------------ */
-typedef enum { PAGE_HOME = 0, PAGE_CLOCK, PAGE_COUNT } page_t;
+typedef enum { PAGE_HOME = 0, PAGE_CLOCK, PAGE_CAM, PAGE_COUNT } page_t;
 typedef enum { F_HOUR = 0, F_MIN, F_SEC, F_YEAR, F_MON, F_DAY, F_COUNT } field_t;
 
 static page_t     g_page = PAGE_HOME;
 static int8_t     g_field = -1;          /* -1 = 非设置模式，否则为当前编辑字段 */
 static datetime_t g_edit;
 static uint8_t    g_dirty = 1u;
+
+/* 相机页：一帧 128x64 1bpp（8 页 x 128 列），由上位机通过串口送进来 */
+#define CAM_FRAME_BYTES 1024u
+static uint8_t    g_cam[CAM_FRAME_BYTES];
+static uint8_t    g_cam_have = 0u;
+static uint8_t    g_cam_new  = 0u;
+/* 是否已经自动切过一次相机页：之后就不再强行拉回，页面归用户控制 */
+static uint8_t    g_cam_autosw = 0u;
 
 static const char *const g_wday[7] = { "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
 
@@ -81,6 +89,9 @@ void ui_init(void)
     g_page = PAGE_HOME;
     g_field = -1;
     g_dirty = 1u;
+    g_cam_have = 0u;
+    g_cam_new = 0u;
+    g_cam_autosw = 0u;
 }
 
 void ui_encoder(int32_t delta)
@@ -165,6 +176,13 @@ uint8_t ui_need_redraw(const datetime_t *dt, uint32_t ms)
         return 1u;
     }
 
+    /* 相机页是整屏位图，只在收到新帧时才重画，别被秒变化/眨眼带着刷 */
+    if ((g_field < 0) && (g_page == PAGE_CAM)) {
+        last_dt = *dt;
+        last_frame = cat_frame(ms);
+        return (g_dirty != 0u) ? 1u : 0u;
+    }
+
     need = g_dirty;
     if ((dt->sec != last_dt.sec) || (dt->min != last_dt.min) || (dt->hour != last_dt.hour) ||
         (dt->day != last_dt.day) || (dt->mon != last_dt.mon) || (dt->year != last_dt.year)) {
@@ -220,6 +238,16 @@ static void draw_clock(const datetime_t *dt)
     ssd1306_str(13, 57, "ENC PAGE  CON SET", 1, 0);
 }
 
+static void draw_cam(void)
+{
+    if (g_cam_have) {
+        ssd1306_blit(g_cam);            /* 整屏位图，直接灌显存 */
+    } else {
+        ssd1306_str(30, 24, "NO SIGNAL", 1, 0);
+        ssd1306_str(14, 40, "WAIT PC FRAME", 1, 0);
+    }
+}
+
 static void draw_setting(void)
 {
     uint8_t  i;
@@ -269,9 +297,41 @@ void ui_draw(const datetime_t *dt, uint32_t ms)
         draw_setting();
     } else if (g_page == PAGE_HOME) {
         draw_home(dt, ms);
-    } else {
+    } else if (g_page == PAGE_CLOCK) {
         draw_clock(dt);
+    } else {
+        draw_cam();
     }
 
     g_dirty = 0u;
+    g_cam_new = 0u;
+}
+
+void ui_feed_bitmap(const uint8_t *data)
+{
+    uint16_t i;
+
+    for (i = 0u; i < CAM_FRAME_BYTES; i++) {
+        g_cam[i] = data[i];
+    }
+
+    g_cam_have = 1u;
+    g_cam_new  = 1u;
+
+    /* 只在"第一次收到画面"时自动进相机页。
+       之后用户按 BACK 回主页、或转 EC11 翻页，都不会被下一帧强行拉回来。 */
+    if ((g_cam_autosw == 0u) && (g_field < 0)) {
+        g_page = PAGE_CAM;
+        g_cam_autosw = 1u;
+    }
+
+    /* 只在正看着相机页时才标脏，别的页面不必跟着串口帧反复重画 */
+    if ((g_field < 0) && (g_page == PAGE_CAM)) {
+        g_dirty = 1u;
+    }
+}
+
+uint8_t ui_is_cam_page(void)
+{
+    return ((g_field < 0) && (g_page == PAGE_CAM)) ? 1u : 0u;
 }

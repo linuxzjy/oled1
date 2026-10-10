@@ -2,3 +2,5 @@ build/
 .cache/
 .vscode/ipch/
 *.log
+__pycache__/
+*.pyc

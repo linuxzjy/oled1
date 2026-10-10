@@ -27,4 +27,16 @@
 /* 按键有效电平：模块按键通常是按下接地 -> 低有效(0)；若你的模块高有效改成 1 */
 #define KEY_ACTIVE_LEVEL 0u
 
+/* --- 上位机串口（USART1：PA9 TX / PA10 RX），接 USB-TTL 模块 ---
+ * 用来接收 PC 发来的 OLED 位图帧，见 Core/Inc/uart_frame.h 的协议说明 */
+#define HOST_UART        USART1
+#define HOST_UART_PORT   GPIOA
+#define HOST_UART_TX_PIN 9u    /* PA9  -> USB-TTL 的 RXD */
+#define HOST_UART_RX_PIN 10u   /* PA10 -> USB-TTL 的 TXD */
+#define HOST_UART_BAUD   921600UL
+#define HOST_UART_IRQ    USART1_IRQHandler
+#define HOST_UART_IRQn   USART1_IRQn
+#define HOST_UART_DMA    DMA1_Channel5
+#define HOST_UART_DMAEN  RCC_AHBENR_DMA1EN
+
 #endif /* PINS_H */

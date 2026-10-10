@@ -61,6 +61,7 @@ add_executable(${PROJECT_NAME}
     Core/Src/ssd1306.c
     Core/Src/font5x7.c
     Core/Src/rtc_time.c
+    Core/Src/uart_frame.c
     Core/Src/ec11.c
     Core/Src/keys.c
     Core/Src/ui.c

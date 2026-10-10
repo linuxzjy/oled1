@@ -12,9 +12,16 @@
 #include "ec11.h"
 #include "keys.h"
 #include "ui.h"
+#include "uart_frame.h"
 
 static volatile uint32_t g_ms = 0;
 static volatile uint8_t  g_tick = 0u;
+
+/* 串口收到的一帧位图（1024 字节，放全局避免占栈） */
+static uint8_t g_rx[FRAME_PAYLOAD_MAX];
+
+/* 诊断用：实际推到屏幕上的帧数（配合 uart_frame_stats 判断"收到了但没显示"） */
+volatile uint32_t g_drawn = 0u;
 
 void SysTick_Handler(void)
 {
@@ -84,6 +91,7 @@ int main(void)
     ec11_init();
     keys_init();
     ui_init();
+    uart_frame_init();
 
     if (!oled_ok) {
         led_period = 100u;                          /* 屏幕没接好：快闪报警 */
@@ -109,6 +117,18 @@ int main(void)
         }
 
         now = g_ms;
+
+        /* 串口来了一帧位图：立刻上屏，不走 100ms 节拍 */
+        if (uart_frame_take(g_rx)) {
+            ui_feed_bitmap(g_rx);
+            /* 只有正看着相机页才立刻上屏；在时钟页时不跟着串口帧空刷 */
+            if (oled_ok && ui_is_cam_page()) {
+                rtc_get_datetime(&dt);
+                ui_draw(&dt, now);
+                ssd1306_refresh();
+                g_drawn++;
+            }
+        }
 
         /* 100ms 检查一次：时间变了 / 有输入 / 小猫眨眼才重画，避免无谓刷屏 */
         if ((uint32_t)(now - last_check) >= 100u) {

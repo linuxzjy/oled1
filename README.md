@@ -63,8 +63,11 @@ EC11 旋转编码器翻页、CON/PSH 进入校时、BACK 退出。
 
 ```powershell
 cmake --workflow --preset build
-openocd -f interface/stlink.cfg -f target/stm32f1x.cfg -c "program build/oled1.elf verify reset exit"
+openocd -f interface/stlink-hla.cfg -f target/stm32f1x.cfg -c "program build/oled1.elf verify reset exit"
 ```
+
+> 必须用 `stlink-hla.cfg`：本机 ST-Link V2 固件是 V2J23，只支持旧版 HLA 协议，
+> 用 `stlink.cfg` 会报 `only supports deprecated HLA`。
 
 > 不要点右上角的"生成活动文件"，那是单文件编译，必然报找不到 `stm32f1xx.h`。
 
@@ -73,9 +76,11 @@ openocd -f interface/stlink.cfg -f target/stm32f1x.cfg -c "program build/oled1.e
 - 时钟源优先用 PC14/PC15 上的 32.768kHz 晶振（LSE，精度高）；
   没起振会自动退到内部 LSI（约 40kHz，误差较大，仅兜底）。
 - **掉电保持需要把纽扣电池接到 VBAT**：电池正极 → VBAT，负极 → GND。
-  没有电池时，每次断电再上电都会回到 `Core/Inc/rtc_time.h` 里的默认时间。
-- 首次烧录前把 `rtc_time.h` 的 `DEFAULT_YEAR/MON/DAY/HOUR/MIN/SEC` 改成当前时间，
-  上电后就是对的；之后也可以直接用按键校时。
+  没有电池时，每次断电再上电都会回到"固件编译时刻"。
+- 时间初值 = **固件编译时刻** + 时区偏移：每次 cmake configure 会把当前时间注入
+  `RTC_BUILD_*` 宏，烧录后首次上电自动写进 RTC，**不用手改头文件**。
+  改时区改 `Core/Inc/rtc_time.h` 的 `RTC_TZ_OFFSET_SEC`（东八区 = 28800）。
+- 手动微调：按 CON 进设置，依次调 时→分→秒→年→月→日，最后再按 CON 保存，BACK 放弃。
 
 ## 五、不亮 / 显示异常怎么办
 
@@ -97,9 +102,81 @@ Core/Src/i2c_soft.c    软件 I2C（PB6/PB7）
 Core/Src/ssd1306.c     SSD1306 驱动 + 显存 + 点阵绘制
 Core/Src/font5x7.c     5x7 字体
 Core/Src/rtc_time.c    片内 RTC + 公历换算
+Core/Src/uart_frame.c  USART1 + DMA，收上位机发来的图像帧
 Core/Src/ec11.c        TIM2 编码器接口（20 定位/圈）
 Core/Src/keys.c        三键消抖
-Core/Src/ui.c          三个界面与交互
+Core/Src/ui.c          四个界面（主页/时钟/相机/校时）与交互
 Core/Src/cat_bitmap.c  小猫位图（tools/gen_cat.js 生成，勿手改）
 tools/gen_cat.js       位图生成脚本（node tools/gen_cat.js，会打印 ASCII 预览）
+tools/cam_serial.py    PC 端：摄像头采集 → 二值化 → 串口发给单片机
 ```
+
+## 七、串口图像：把 PC 的画面推到 OLED 上
+
+STM32F103 **没有 USB 主机**，不能直接接 UVC 摄像头。做法是让 PC 负责采集和
+处理，单片机只负责显示：
+
+```
+摄像头 → PC(OpenCV) → 128x64 1bpp(1024 字节) → 串口 → STM32 → OLED
+```
+
+### 接线
+
+| USB-TTL 模块 | STM32 | 说明 |
+| ---- | ---- | ---- |
+| TXD | PA10 | 模块发、单片机收 |
+| RXD | PA9 | 单片机发、模块收（调试用，可以不接） |
+| GND | GND | **必须共地** |
+| 5V/VCC | — | 不要给单片机供 5V（会烧），单片机自己供电 |
+
+模块在设备管理器里看到的 COM 口就是下面命令里的 `--port`。
+波特率 921600（改 `Core/Inc/pins.h` 的 `HOST_UART_BAUD`）。
+
+### 帧协议
+
+```
+[0]     0xAA
+[1]     0x55
+[2..3]  payload 长度，小端（固定 1024）
+[4]     命令字 0x01 = 1bpp 位图
+[5..]   payload 1024 字节
+[最后]  校验：从 [2] 到最后一个 payload 字节的累加和 & 0xFF
+```
+
+位图格式与 SSD1306 显存一致，收到后直接 memcpy 进显存：
+8 页 x 128 列，每字节 `bit0` = 该页最上一行、`bit7` = 最下一行，列顺序 x = 0..127。
+
+### PC 端用法
+
+```powershell
+pip install pyserial numpy opencv-python
+
+# 1) 先验证链路（不需要摄像头，发滚动棋盘格）
+python tools/cam_serial.py --port COM3 --test
+
+# 2) 接摄像头（先用 --list-cameras 确认编号，别想当然用 0）
+python tools/cam_serial.py --port COM3 --camera 1 --mode otsu --fps 20 --preview
+
+# 不知道 COM 几？
+python tools/cam_serial.py --list
+```
+
+常用参数：`--mode otsu|thresh|dither`（二值化方式）、`--fps`（发送帧率）、
+`--mirror`（左右镜像）、`--invert`（黑白反转）、`--preview`（PC 上开窗口对照）。
+
+### 页面切换
+
+- **第一次**收到画面时会自动跳到相机页
+- 之后不会被串口帧强行拉回：按 **BACK** 回小猫时钟页，转 **EC11** 在三页间循环
+  （小猫时钟 → 大时钟 → 相机）
+- 画面在后台持续接收，切回相机页看到的就是最新一帧，**不用关终端**
+
+### 摄像头编号别猜
+
+机器上往往不止一个摄像头，`--camera 0` 通常是笔记本内置那颗：
+
+```powershell
+python tools/cam_serial.py --list-cameras
+```
+
+USB 摄像头经常是 `1`。**用错编号的表现是：你怎么动摄像头，屏幕都没反应。**

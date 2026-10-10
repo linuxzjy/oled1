@@ -19,5 +19,12 @@
     "cortex-debug.openocdPath": "C:\\Users\\86139\\stm32-tools\\openocd\\bin\\openocd.exe",
     "files.associations": {
         "*.h": "c"
-    }
+    },
+    // tools/*.py（cam_serial.py 等）用的解释器：装了 numpy / pyserial / opencv 的那个。
+    // 换了 Python 就改这里，否则 IDE 会报一堆"无法解析导入"。
+    "python.defaultInterpreterPath": "C:\\Users\\86139\\.workbuddy\\binaries\\python\\versions\\3.14.3\\python.exe",
+    // basedpyright 默认开到最严格的 all，会对没写类型注解的脚本刷出上百条噪音。
+    // 这是烧录/调试用的小工具脚本，降到 standard 就够。
+    "python.analysis.typeCheckingMode": "standard",
+    "basedpyright.analysis.typeCheckingMode": "standard"
 }
