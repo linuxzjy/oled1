@@ -7,10 +7,7 @@
       "displayName": "STM32F103C8T6 (Ninja + arm-none-eabi-gcc)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build",
-      "toolchainFile": "${sourceDir}/cmake/gcc-arm-none-eabi.cmake",
-      "cacheVariables": {
-        "CMAKE_MAKE_PROGRAM": "C:/Users/86139/stm32-tools/ninja/bin/ninja.exe"
-      }
+      "toolchainFile": "${sourceDir}/cmake/gcc-arm-none-eabi.cmake"
     }
   ],
   "buildPresets": [

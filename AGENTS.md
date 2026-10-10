@@ -17,6 +17,12 @@ CMake + Ninja + arm-none-eabi-gcc 构建，OpenOCD + ST-Link 在线烧录/调试
   必然报 `stm32f1xx.h: No such file or directory`。
 - 链接时 `_close/_read/_write not implemented` 是 nosys 桩的正常提示，忽略。
 - 当前占用：Flash ≈ 7.2KB / 64KB，RAM ≈ 1.1KB / 20KB。
+- **Ninja 路径不写死**：`CMakeLists.txt` 按 `NINJA_PATH`(指向 ninja 可执行文件)
+  → `STM32_TOOLS/ninja/bin` → `~/stm32-tools/ninja/bin` → 系统 PATH 的顺序查找。
+  换机器只需把 ninja 加进 PATH，或设 `NINJA_PATH` / `STM32_TOOLS` 环境变量。
+  注意别用 `find_program` 找 ninja：交叉编译配置阶段它搜不到宿主程序，要用 `if(EXISTS ...)` 判定。
+- 改了 `CMakePresets.json` 之后用 `cmake --fresh --preset stm32` 重建缓存，
+  否则旧的 `CMAKE_MAKE_PROGRAM` 绝对路径会留在 `build/CMakeCache.txt` 里。
 
 ## 芯片与关键配置
 
