@@ -1,0 +1,23 @@
+{
+    // 本机工具均安装在 C:\Users\86139\stm32-tools
+    // 修改了工具位置时，同步改这里即可
+    "cmake.cmakePath": "C:\\Users\\86139\\stm32-tools\\cmake\\bin\\cmake.exe",
+    "cmake.preset": "stm32",
+    "cmake.configureOnOpen": true,
+    "cmake.environment": {
+        "PATH": "C:\\Users\\86139\\stm32-tools\\gcc\\bin;C:\\Users\\86139\\stm32-tools\\ninja\\bin;${env:PATH}"
+    },
+    "terminal.integrated.env.windows": {
+        "PATH": "C:\\Users\\86139\\stm32-tools\\gcc\\bin;C:\\Users\\86139\\stm32-tools\\openocd\\bin;C:\\Users\\86139\\stm32-tools\\cmake\\bin;C:\\Users\\86139\\stm32-tools\\ninja\\bin;${env:PATH}"
+    },
+    // IntelliSense 直接读取 CMake 的编译参数（compile_commands.json），
+    // 头文件路径和宏定义跟着构建走，不会出现红色波浪线
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "C_Cpp.default.compilerPath": "C:\\Users\\86139\\stm32-tools\\gcc\\bin\\arm-none-eabi-gcc.exe",
+    "C_Cpp.default.intelliSenseMode": "gcc-arm",
+    "C_Cpp.default.cStandard": "c11",
+    "cortex-debug.openocdPath": "C:\\Users\\86139\\stm32-tools\\openocd\\bin\\openocd.exe",
+    "files.associations": {
+        "*.h": "c"
+    }
+}

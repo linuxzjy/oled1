@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug STM32 (ST-Link + OpenOCD)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/oled1.elf",
+            "servertype": "openocd",
+            "serverpath": "C:\\Users\\86139\\stm32-tools\\openocd\\bin\\openocd.exe",
+            "gdbPath": "C:\\Users\\86139\\stm32-tools\\gcc\\bin\\arm-none-eabi-gdb.exe",
+            "configFiles": [
+                "interface/stlink-hla.cfg",
+                "target/stm32f1x.cfg"
+            ],
+            "runToEntryPoint": "main",
+            "preLaunchTask": "Build",
+            "showDevDebugOutput": "none",
+            "liveWatch": {
+                "enabled": true,
+                "samplesPerSecond": 4
+            }
+        }
+    ]
+}
